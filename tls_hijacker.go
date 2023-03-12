@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/elazarl/goproxy"
-	"github.com/fedosgad/mirror_proxy/hijackers"
-	"github.com/fedosgad/mirror_proxy/utils"
 	"io"
 	"net"
 	"net/http"
 	"sync"
+
+	"github.com/elazarl/goproxy"
+	"github.com/fedosgad/mirror_proxy/hijackers"
+	"github.com/fedosgad/mirror_proxy/utils"
 )
 
 func getTLSHijackFunc(hj hijackers.Hijacker) func(*http.Request, net.Conn, *goproxy.ProxyCtx) {

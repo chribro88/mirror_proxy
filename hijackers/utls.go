@@ -3,11 +3,12 @@ package hijackers
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/fedosgad/mirror_proxy/utils"
-	utls "github.com/refraction-networking/utls"
 	"io"
 	"net"
 	"net/url"
+
+	"github.com/fedosgad/mirror_proxy/utils"
+	utls "github.com/refraction-networking/utls"
 )
 
 type utlsHijacker struct {
@@ -16,6 +17,7 @@ type utlsHijacker struct {
 	clientTLSConfig  *tls.Config
 	remoteUTLSConfig *utls.Config
 	generateCertFunc func(ips []string, names []string) (*tls.Certificate, error)
+	keepPSK          bool
 }
 
 func NewUTLSHijacker(
@@ -23,6 +25,7 @@ func NewUTLSHijacker(
 	allowInsecure bool,
 	keyLogWriter io.Writer,
 	generateCertFunc func(ips []string, names []string) (*tls.Certificate, error),
+	keepPSK bool,
 ) Hijacker {
 	return &utlsHijacker{
 		dialer:        dialer,
@@ -34,6 +37,7 @@ func NewUTLSHijacker(
 			KeyLogWriter: keyLogWriter,
 		},
 		generateCertFunc: generateCertFunc,
+		keepPSK:          keepPSK,
 	}
 }
 
@@ -56,7 +60,7 @@ func (h *utlsHijacker) GetConns(target *url.URL, clientRaw net.Conn, ctxLogger L
 		return nil, nil, err
 	}
 
-	go f.extractALPN()
+	go f.extractALPN(h.keepPSK)
 
 	return plaintextConn, remoteConn, plaintextConn.Handshake() // Return connections so they can be closed
 }
@@ -202,7 +206,7 @@ func (f clientHelloFingerprinter) error() chan error {
 	return f.errCh
 }
 
-func (f clientHelloFingerprinter) extractALPN() {
+func (f clientHelloFingerprinter) extractALPN(kpk bool) {
 	tlsHeader := make([]byte, 5)
 	n, err := io.ReadAtLeast(f.conn, tlsHeader, 5)
 	if err != nil {
@@ -239,7 +243,7 @@ func (f clientHelloFingerprinter) extractALPN() {
 	f.log.Logf("Client ALPN offers: %v", nextProtos)
 
 	fp := utls.Fingerprinter{
-		KeepPSK:           false,
+		KeepPSK:           kpk,
 		AllowBluntMimicry: true,
 		AlwaysAddPadding:  false,
 	}

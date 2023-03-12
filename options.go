@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/cosiner/flag"
 	"log"
 	"time"
+
+	"github.com/cosiner/flag"
 )
 
 type Options struct {
@@ -23,6 +24,7 @@ type Options struct {
 	KeyFile       string `names:"--key, -k" usage:"Path to root CA key" default:""`
 	SSLLogFile    string `names:"--sslkeylog, -s" usage:"Path to SSL/TLS secrets log file" default:"ssl.log"`
 	AllowInsecure bool   `names:"--insecure, -i" usage:"Allow connecting to insecure remote hosts" default:"false"`
+	KeepPSK       bool   `names:"--keeppsk, -e" usage:"KeepPSK will ensure that the PreSharedKey extension is passed along into the resulting ClientHelloSpec as-is. Depreciated in utls 1.3.0" default:"false"`
 }
 
 func getOptions() *Options {

@@ -2,11 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/elazarl/goproxy"
-	http_dialer "github.com/fedosgad/go-http-dialer"
-	"github.com/fedosgad/mirror_proxy/cert_generator"
-	"github.com/fedosgad/mirror_proxy/hijackers"
-	"golang.org/x/net/proxy"
 	"io"
 	"log"
 	"net"
@@ -14,6 +9,12 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+
+	"github.com/elazarl/goproxy"
+	http_dialer "github.com/fedosgad/go-http-dialer"
+	"github.com/fedosgad/mirror_proxy/cert_generator"
+	"github.com/fedosgad/mirror_proxy/hijackers"
+	"golang.org/x/net/proxy"
 )
 
 func main() {
@@ -38,6 +39,7 @@ func main() {
 		opts.AllowInsecure,
 		klw,
 		cg.GenChildCert,
+		opts.KeepPSK,
 	)
 	hj := hjf.Get(opts.Mode)
 
