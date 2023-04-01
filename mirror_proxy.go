@@ -48,6 +48,28 @@ func main() {
 	p.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile("^.*$"))).
 		HandleConnect(goproxy.FuncHttpsHandler(
 			func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+
+				val, ok := ctx.Req.Header["X-Mitm-Upstream"]
+				// If the key exists
+				if ok {
+					opts.ProxyAddr = val[0]
+					ctx.Logf("X-Mitm-Upstream: %s\n", val[0])
+					ctx.Req.Header.Del("X-Mitm-Upstream")
+
+					dialer, err := getDialer(opts)
+					if err != nil {
+						log.Fatalf("Error getting proxy dialer: %v", err)
+					}
+					hjf := hijackers.NewHijackerFactory(
+						dialer,
+						opts.AllowInsecure,
+						klw,
+						cg.GenChildCert,
+						opts.KeepPSK,
+					)
+					hj = hjf.Get(opts.Mode)
+				}
+
 				return &goproxy.ConnectAction{
 					Action: goproxy.ConnectHijack,
 					Hijack: getTLSHijackFunc(hj),
