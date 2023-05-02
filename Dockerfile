@@ -22,7 +22,7 @@ RUN adduser -S -u 101 goapp \
 
 USER 101
 
-RUN mv ./.mitmproxy ~/.mitmproxy
+# RUN mv ./.mitmproxy ~/.mitmproxy
 
 RUN GOOS=linux GOARCH=amd64 go build -v -o ./mirror_proxy .
 
