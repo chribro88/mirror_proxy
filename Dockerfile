@@ -20,7 +20,7 @@ RUN adduser -S -u 1001 goapp \
      && chown -R goapp:mirror_proxy /app/ssl \
      && chmod g+rwX /app -R 
 
-USER 101
+USER 1001
 
 # RUN mv ./.mitmproxy ~/.mitmproxy
 
