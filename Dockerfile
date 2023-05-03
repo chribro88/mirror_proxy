@@ -12,7 +12,8 @@ RUN mkdir /app/ssl
 
 # default gid 65533 and primary. mirror_proxy app also set 644 permissions. 
 # need to check https://osqa-ask.wireshark.org/questions/61543/use-tshark-with-sslkeylogfile-to-get-decrypted-tls-data/
-RUN adduser -S -u 1001 goapp -G goapp --guid 1001 \
+RUN addgroup -S -g 1001 goapp \
+    && adduser -S -u 1001 goapp -G goapp \
     #  && addgroup -S -g 1001 goapp \
     #  && addgroup goapp goapp \
      && addgroup -S -g 1002 mirror_proxy \
