@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -10,12 +11,14 @@ import (
 	"os"
 	"regexp"
 
+	http_dialer "github.com/chribro88/go-http-dialer"
 	"github.com/elazarl/goproxy"
-	http_dialer "github.com/fedosgad/go-http-dialer"
 	"github.com/fedosgad/mirror_proxy/cert_generator"
 	"github.com/fedosgad/mirror_proxy/hijackers"
 	"golang.org/x/net/proxy"
 )
+
+const UPSTREAM_PROXY_HDR = "X-Mirrorproxy-Upstream" // canonical format
 
 func main() {
 	opts := getOptions()
@@ -30,51 +33,91 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	dialer, err := getDialer(opts)
+
+	proxyHeader := make(http.Header)
+
+	dialer, err := getDialer(opts, proxyHeader)
 	if err != nil {
 		log.Fatalf("Error getting proxy dialer: %v", err)
 	}
-	hjf := hijackers.NewHijackerFactory(
-		dialer,
-		opts.AllowInsecure,
-		klw,
-		cg.GenChildCert,
-		opts.KeepPSK,
-	)
-	hj := hjf.Get(opts.Mode)
+
+	hj := getHijacker(opts, klw, cg, dialer)
+
+	transport := getTransport(dialer)
 
 	p := goproxy.NewProxyHttpServer()
 	// Handle all CONNECT requests
 	p.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile("^.*$"))).
 		HandleConnect(goproxy.FuncHttpsHandler(
 			func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
-
-				val, ok := ctx.Req.Header["X-Mitm-Upstream"]
-				// If the key exists
-				if ok {
-					opts.ProxyAddr = val[0]
-					ctx.Logf("X-Mitm-Upstream: %s\n", val[0])
-					ctx.Req.Header.Del("X-Mitm-Upstream")
-
-					dialer, err := getDialer(opts)
-					if err != nil {
-						log.Fatalf("Error getting proxy dialer: %v", err)
-					}
-					hjf := hijackers.NewHijackerFactory(
-						dialer,
-						opts.AllowInsecure,
-						klw,
-						cg.GenChildCert,
-						opts.KeepPSK,
-					)
-					hj = hjf.Get(opts.Mode)
+				// handle the X-Forwarded-For header
+				remoteIP, _, err := net.SplitHostPort(ctx.Req.RemoteAddr)
+				if err != nil {
+					ctx.Logf("Error getting remote IP: %v", err)
+				}
+				ff := getAddHdr("X-Forwarded-For", remoteIP, ctx)
+				// handle the Mirror Proxy header
+				up := getDelHdr(UPSTREAM_PROXY_HDR, ctx)
+				if len(up) != 0 {
+					// change upstream proxy
+					opts.ProxyAddr = up[0]
 				}
 
+				if len(ff) != 0 || len(up) != 0 {
+					d, err := getDialer(opts, ctx.Req.Header)
+					if err != nil {
+						ctx.Logf("Error getting proxy dialer: %v", err)
+						// TODO: return 500
+						return &goproxy.ConnectAction{
+							Action: goproxy.ConnectReject,
+						}, host
+					}
+
+					hj = getHijacker(opts, klw, cg, d)
+				}
 				return &goproxy.ConnectAction{
 					Action: goproxy.ConnectHijack,
 					Hijack: getTLSHijackFunc(hj),
 				}, host
 			}))
+	// Handle all HTTP requests
+	p.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile("^.*$"))).
+		DoFunc(
+			func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+				// handle the X-Forwarded-For header
+				remoteIP, _, err := net.SplitHostPort(ctx.Req.RemoteAddr)
+				if err != nil {
+					ctx.Logf("Error getting remote IP: %v", err)
+				}
+				_ = getAddHdr("X-Forwarded-For", remoteIP, ctx)
+				// handle the Mirror Proxy header
+				up := getDelHdr(UPSTREAM_PROXY_HDR, ctx)
+				if len(up) != 0 {
+					// change upstream proxy
+					opts.ProxyAddr = up[0]
+				}
+
+				// get new transport if upstream proxy provided ONLY
+				if len(up) != 0 {
+					d, err := getDialer(opts, req.Header)
+					if err != nil {
+						ctx.Logf("Error getting proxy dialer: %v", err)
+						return nil, goproxy.NewResponse(
+							req,
+							"text/plain",
+							500,
+							fmt.Sprintf("Error getting proxy dialer: %v", err))
+					}
+
+					ctx.Proxy.Tr = getTransport(d)
+
+				} else {
+					// default upstream proxy
+					ctx.Proxy.Tr = transport
+				}
+				return req, nil
+			})
+
 	p.Verbose = opts.Verbose
 
 	if opts.PprofAddress != "" {
@@ -87,6 +130,30 @@ func main() {
 
 type writeNopCloser struct {
 	io.Writer
+}
+
+func getAddHdr(hdr string, val string, ctx *goproxy.ProxyCtx) []string {
+	// add val to header and return original value
+	ffv, ok := ctx.Req.Header[hdr]
+	// If the header exists
+	if ok {
+		ctx.Logf("Appending %s to Header %s: %s", val, hdr, ffv)
+		ctx.Req.Header.Add(hdr, val)
+		return ffv
+	}
+	return []string{}
+}
+
+func getDelHdr(hdr string, ctx *goproxy.ProxyCtx) []string {
+	// delete the header and return original value
+	upv, ok := ctx.Req.Header[hdr]
+	// If the key exists
+	if ok {
+		ctx.Logf("Deleting Header: %s: %s", hdr, upv[0])
+		ctx.Req.Header.Del(hdr)
+		return upv
+	}
+	return []string{}
 }
 
 func (c writeNopCloser) Close() error {
@@ -102,7 +169,7 @@ func getSSLLogWriter(opts *Options) (klw io.WriteCloser, err error) {
 	return klw, err
 }
 
-func getDialer(opts *Options) (proxy.Dialer, error) {
+func getDialer(opts *Options, proxyHeader http.Header) (proxy.Dialer, error) {
 	// Timeout SHOULD be set. Otherwise, dialing will never succeed if the first address
 	// returned by resolver is not responding (connection will just hang forever).
 	d := &net.Dialer{
@@ -118,6 +185,13 @@ func getDialer(opts *Options) (proxy.Dialer, error) {
 	if proxyURL.Scheme == "socks5" {
 		return proxy.FromURL(proxyURL, d)
 	}
+	h := make(http.Header)
+	forwardfor, ok := proxyHeader["X-Forwarded-For"]
+	// If the header exists
+	if ok {
+		h.Set("X-Forwarded-For", forwardfor[0])
+
+	}
 	if proxyURL.Scheme == "http" || proxyURL.Scheme == "https" {
 		if proxyURL.User != nil {
 			pass, _ := proxyURL.User.Password()
@@ -127,14 +201,34 @@ func getDialer(opts *Options) (proxy.Dialer, error) {
 				http_dialer.WithProxyAuth(http_dialer.AuthBasic(username, pass)),
 				http_dialer.WithConnectionTimeout(opts.ProxyTimeout),
 				http_dialer.WithContextDialer(d),
+				http_dialer.WithProxyHeader(h),
 			), nil
 		}
 		return http_dialer.New(
 			proxyURL,
 			http_dialer.WithConnectionTimeout(opts.ProxyTimeout),
 			http_dialer.WithContextDialer(d),
+			http_dialer.WithProxyHeader(h),
 		), nil
 	}
 
 	return nil, fmt.Errorf("cannot use proxy scheme %q", proxyURL.Scheme)
+}
+
+func getHijacker(opts *Options, klw io.WriteCloser, cg *cert_generator.CertificateGenerator, dialer proxy.Dialer) hijackers.Hijacker {
+	hjf := hijackers.NewHijackerFactory(
+		dialer,
+		opts.AllowInsecure,
+		klw,
+		cg.GenChildCert,
+		opts.KeepPSK,
+	)
+	return hjf.Get(opts.Mode)
+}
+
+func getTransport(dialer proxy.Dialer) *http.Transport {
+	return &http.Transport{
+		Dial:            dialer.Dial,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 }

@@ -1,5 +1,9 @@
 github.com/andybalholm/brotli v1.0.4 h1:V7DdXeJtZscaqfNuAdSRuRFzuiKlHSC/Zh3zl9qY3JY=
 github.com/andybalholm/brotli v1.0.4/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
+github.com/chribro88/go-http-dialer v0.0.0-20220817082317-794079273155 h1:OHifEOE/8ucsKJ4JNFebGDx+Tutg+PO2PGTBcz091XI=
+github.com/chribro88/go-http-dialer v0.0.0-20220817082317-794079273155/go.mod h1:2ZsPAgGBrjsmV4agkPYhyV/4pSt4UGuKwYPGL1+svg0=
+github.com/chribro88/go-http-dialer v0.0.0-20230510100700-3859f5f97cb0 h1:R8/fP/aCQKnneQfQIwzbDckWnND4B+kJg8edaWY3vS4=
+github.com/chribro88/go-http-dialer v0.0.0-20230510100700-3859f5f97cb0/go.mod h1:2ZsPAgGBrjsmV4agkPYhyV/4pSt4UGuKwYPGL1+svg0=
 github.com/cosiner/argv v0.0.1 h1:2iAFN+sWPktbZ4tvxm33Ei8VY66FPCxdOxpncUGpAXE=
 github.com/cosiner/argv v0.0.1/go.mod h1:p/NrK5tF6ICIly4qwEDsf6VDirFiWWz0FenfYBwJaKQ=
 github.com/cosiner/flag v0.5.2 h1:dcI3ExLwrYt/wgg1RXZBn7FFFn3Mi5Lyremoa7Tt5ts=
@@ -8,8 +12,6 @@ github.com/elazarl/goproxy v0.0.0-20220529153421-8ea89ba92021 h1:EbF0UihnxWRcIMO
 github.com/elazarl/goproxy v0.0.0-20220529153421-8ea89ba92021/go.mod h1:Ro8st/ElPeALwNFlcTpWmkr6IoMFfkjXAvTHpevnDsM=
 github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2 h1:dWB6v3RcOy03t/bUadywsbyrQwCqZeNIEX6M1OtSZOM=
 github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2/go.mod h1:gNh8nYJoAm43RfaxurUnxr+N1PwuFV3ZMl/efxlIlY8=
-github.com/fedosgad/go-http-dialer v0.0.0-20220817082317-794079273155 h1:oLDdwWgc4jpeAUacVjYztKiKXraThk6ZbsXF1aOvPPM=
-github.com/fedosgad/go-http-dialer v0.0.0-20220817082317-794079273155/go.mod h1:ZX3YliCLM85weNOa44dHN0mtrZY/COlqiRmo9f0ZYbM=
 github.com/klauspost/compress v1.15.15 h1:EF27CXIuDsYJ6mmvtBRlEuB2UVOqHG1tAXgZ7yIO+lw=
 github.com/klauspost/compress v1.15.15/go.mod h1:ZcK2JAFqKOpnBlxcLsJzYfrS9X1akm9fHZNnD9+Vo/4=
 github.com/refraction-networking/utls v1.2.2 h1:uBE6V173CwG8MQrSBpNZHAix1fxOvuLKYyjFAu3uqo0=
