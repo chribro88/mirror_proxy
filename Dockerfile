@@ -8,7 +8,7 @@ WORKDIR /app
 
 COPY --chown=1001:1001 . .
 
-RUN mkdir /app/ssl 
+RUN if [ ! -d "/app/ssl" ]; then mkdir /app/ssl; fi
 
 # default gid 65533 and primary. mirror_proxy app also set 644 permissions. 
 # need to check https://osqa-ask.wireshark.org/questions/61543/use-tshark-with-sslkeylogfile-to-get-decrypted-tls-data/
